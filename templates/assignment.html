@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Alpha - 3 | Assignment</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+    <link href="./img/favicon/apple-touch-icon.png" rel="apple-touch-icon" sizes="180x180">
+    <link href="./img/favicon/favicon-32x32.png" rel="icon" sizes="32x32" type="image/png">
+    <link href="./img/favicon/favicon-16x16.png" rel="icon" sizes="16x16" type="image/png">
+    <link href="./img/favicon/site.webmanifest" rel="manifest">
+    <link href="https://fonts.googleapis.com/css?family=Lato" rel="stylesheet">
+    <link href="./styles/reset.css" rel="stylesheet">
+    <link href="./styles/assignment.css" rel="stylesheet">
+</head>
+<body>
+<div class="container">
+    <h2>Alfa 4 Sitova aplikace pomocí architektury P2P</h2>
+    <div class="row">
+        <div class="col-md-8 col-md-offset-2">
+            <ul style="list-style-type:circle">
+                Peer-to-peer chat
+                Vytvořte jeden uzel (dále jen peer) pro decentralizovaný chat. Každý peer nejprve najde ostatní peery v
+                síti. Následně od nich načte historii zpráv chatu a sloučí ji se svou vlastní historií zpráv. Poté jim
+                bude posílat nové zprávy a naopak čekat na zprávy od nich. Zprávy, které od nich obdrží, uloží do své
+                historie zpráv. Zprávy se tedy neztratí, pakliže na síti bude připojen alespoň jeden peer, který
+                historii uchovává.<br><br>
+
+                Program předvedete v lab8a. Váš program musí dle popisu komunikovat s 3-4 další aplikacemi od vašich
+                spolužáků. Cokoliv menšího není považováno za hodnotitelné.<br><br>
+
+                Peer používá tři druhy komunikace:<br><br>
+
+                - UDP; peer jím objevuje ostatní v síti<br><br>
+
+                - TCP; peer udržuje trvalé spojení s ostatními peery (vzájemná komunikace)<br><br>
+
+                - HTTP server běžící na localhostu peera; implementuje jednoduché API pro komunikaci s peerem z
+                příkazové řádky (příkazem curl) nebo může sloužit jako API pro nějaký webový backend, který by běžel
+                tamtéž a zobrazoval by chat v prohlížeči (volitelně - za takové webové stránky bonusové body
+                mrknout)<br><br><br>
+
+
+                1. UDP discovery<br>
+                Po startu začne peer provádět periodické hledání protějšků pomocí “UDP discovery”. Každých pět sekund
+                pošle do sítě UDP broadcast na port 9876 a čeká na odpovědi (těch pět sekund než ho pošle znovu). Ke
+                komunikaci je použit protokol na bázi JSON. Co řádek, to buď dotaz nebo odpověď. Řádky končí buď CR-LF
+                nebo jen LF.<br><br>
+
+                Q=dotaz, A=odpověď<br><br>
+
+                Q: {"command":"hello","peer_id":"molic-peer1"}<br>
+                A: {"status":"ok","peer_id":"molic-peer1"}<br>
+                A: {"status":"ok","peer_id":"molic-peer2"}<br>
+                A: {"status":"ok","peer_id":"molic-peer3"}<br><br>
+
+                Zde “molic-peer1” poslal UDP dotaz do sítě (představil se) a ozvali se mu tři protějšky. Pozor, peer
+                odpoví také sám sobě, nutno ignorovat. Čili protějšky jsou pouze dva. Součástí odpovědi je IP adresa
+                protějšků. Díky ní lze pak s nimi navázat TCP spojení.<br><br><br>
+
+
+                2. TCP protokol<br>
+                S každým nově nalezeným peerem se naváže trvalé TCP spojení na port 9876 (ovšem TCP port!) Komunikace
+                probíhá podobným protokolem na bázi JSON.<br><br>
+
+                Nejprve je nutno se opět představit, protože protějšek jinak neví kdo se k němu připojuje. V odpovědi na
+                tento “handshake” protějšek pošle celou svou historii zpráv chatu.<br><br>
+
+                Q: {"command":"hello","peer_id":"molic-peer1"}<br>
+                A: {“status”:”ok”, “messages”:{"1707243010934"=>{"peer_id"=>"molic-peer3", "message"=>"pokus"},<br>
+                "1707243028143"=>{"peer_id"=>"molic-peer3", "message"=>"pokus2"},<br>
+                "1707243101261"=>{"peer_id"=>"molic-peer1", "message"=>"blablabla"}}<br><br>
+
+                Toto se provede s každým nalezeným protějškem. Je možné, že tytéž zprávy má více protějšků. Peer proto
+                musí sloučit všechny zprávy, které od všech obdržel, do jediné historie. Provede to jednoduše: každá
+                zpráva má své ID, díky němuž lze ignorovat duplicitní zprávy.<br><br>
+
+                Poté co proběhne “handshake”, je toto TCP spojení použito k posílání zpráv (směrem “k protějšku”).
+                Naopak od protějšků jsou zprávy akceptovány pomocí spojení, která vytvořili směrem k peeru. Peer tedy
+                implementuje jak TCP klienty (směrem ven), tak TCP server (směr dovnitř).<br><br>
+
+                Novou zprávu peer pošle tak, že vygeneruje její ID (timestamp - viz níže) a pak ji rozešle všem
+                peerům:<br><br>
+
+                peeru 1:<br><br>
+
+                Q: {“command”:”new_message”,”message_id”:"1707243010934","message":”pokus"}}<br>
+                A: {“status”:”ok”}<br><br>
+
+                peeru 2:<br><br>
+
+                Q: {“command”:”new_message”,”message_id”:"1707243010934","message":”pokus"}}<br>
+                A: {“status”:”ok”}<br><br>
+
+                atd.<br><br>
+
+                Protějšky uloží zprávu do svých historií chatu včetně peer_id (toho, kdo zprávu poslal).<br><br><br>
+
+
+                3. API<br>
+                Aby šlo psát a číst zprávy, je nutno s backendem nějak komunikovat. Pro tyto účely backend implementuje
+                HTTP server, který poslouchá na 127.0.0.1:8080. Volitelně je možno naprogramovat webový
+                frontend.<br><br>
+
+                čtení zpráv - GET / - peer vrátí historii zpráv, kterou má peer uloženu, zprávy seřazeny podle času -
+                timestampů:<br><br><br>
+
+
+                $ curl http://127.0.0.1:8080/<br>
+                {"1707243010934":{"peer_id":"molic-peer3","message":"pokus"},"1707243028143":{"peer_id":"molic-peer3","message":"pokus2"},"1707243101261":{"peer_id":"molic-peer1","message":"blablabla"}}<br><br>
+
+                poslání zprávy - GET /send?message=... - správně by měla být použita metoda POST, ale zde je pro
+                jednoduchost GET, čímž odpadá nutnost parsování těla http dotazu<br><br>
+
+                $ curl http://127.0.0.1:8080/send?message=blablabla<br>
+                {“status”:”ok”}<br><br>
+
+                Webová aplikace (frontend) není nutná, ale můžete ji vytvořit. Nabízelo by se webserver rozšířit o
+                websockety, aby frontend mohl zobrazovat nové zprávy okamžitě. API můžete rozšířit podle potřeb.<br><br><br>
+
+
+                Technické a organizační pokyny<br>
+                Aplikace poběží buď na školním VM nebo na RaspberryPI, zapojeném do LAB 8a (VM a LAB jsou propojeny do
+                stejného switche).<br><br>
+
+                Aplikace poběží na IP rozsahu 172.16.0.0/12. Pozor na masku /12, broadcast je 172.31.255.255 (viz
+                ipcalc)! Školní VM již tuto adresu mají z DHCP na eth1 (v případě že je ve VM pouze eth0 a eth1 chybí,
+                jedná se o staré VM a je potřeba vytvořit nové).<br><br>
+
+                Každý peer má svoje ID, které se nastaví buď v konfiguračním souboru nebo podle hostname.<br><br>
+
+                Timestamp (ID zpráv) je řetězec, složený alespoň z 13 číslic. Jedná se o počet milisekund od roku 1970
+                (viz google “13 digit timestamp”). Je možno použít i preciznější timestamp, kupříkladu 16 číslic
+                (mikrosekundy). Důležité je, že timestamp slouží jako unikátní ID zpráv a navíc lze podle něj zprávy
+                seřadit podle času.<br><br>
+
+                Muzete pouzit pouze technologie (knihovny, programovaci jazyky, databaze apod.), ktere se ve skole
+                vyucuji. Pripadnou vyjimku pro specificke programovaci jazyky apod. musi udelit jak ucitele PV tak i PSS
+                (oba dohromady).<br><br>
+
+                Program se odevzdava v predmetu PV dle standardnich kriterii hodnoceni i v predmetu PSS dle bezneho
+                postupu.<br><br>
+
+                Program musí přijímat a zasílat pouze přesně definované zprávy dalším programům v textovém formátu a
+                kódování UTF-8. Nesmí zasílat zprávy, kterou nejsou níže povolené a musí dodržovat přesné pořadí
+                příkazů. Nemůžete si tvořit vlastní příkazy nebo do komunikace cokoli dalšího přidávat nebo
+                měnit.<br><br>
+
+                Program musí být schopen reagovat okamžitě na spuštění nebo vypnutí dalších programů v řádu sekund, tedy
+                doporučujeme scanovat aktuální stav síťe při každém příkazu pro překlad.<br><br>
+
+                Program musí při každé komunikaci s dalším peerem dodržovat nastavený (defaultně 30 sekundový timeout),
+                tedy když protistrana do 30 sekund neodpoví, program komunikaci ukončí. Doporučujeme, aby timeout byl
+                konfigurovatelný a můžete zavést více timeoutů pro různé situace.<br><br>
+
+                Program musí pracovat podle architektonického návrhového vzoru peer to peer zkráceně P2P.<br><br>
+
+                Program musí být konfigurovatelný konfiguračním souborem, kde lze nastavit na jakém portu a IP naslouchá
+                a jaký IP rozsah a porty má scanovat pro případnou komunikaci. Musí zde být možnost nastavit program,
+                aby naslouchal i na všech IP adresách zároveň. Nezapomínejte při scanování scanovat nejen rozsah IP ale
+                i rozsah portů od-do.<br><br>
+
+                Systémový daemon a logování<br>
+                Aplikace poběží pod vlastním uživatelem (nikoli jako root), obdobně pokud aplikace používá databázi nebo
+                jiné služby, nikdy nepoužívá administrátorský účet. Kód se bude nacházet v domovském adresáři toho
+                uživatele a bude spouštěna jako služba systemd. Pakliže bude služba nazvána např. “chat”, spouštět a
+                zastavovat se bude takto:<br><br><br>
+
+                $ systemctl start chat<br>
+                $ systemctl stop chat<br><br>
+
+                Logovací hlášky půjde zobrazit příkazem<br><br>
+
+                $ journalctl -fu chat<br><br><br>
+
+
+                Demo aplikace a testování<br>
+                V síti již běží tři instance na třech VM:<br><br>
+
+                ssh -p 20110 jouda@dev.spsejecna.net # molic-peer1<br>
+                ssh -p 20185 jouda@dev.spsejecna.net # molic-peer2<br>
+                ssh -p 20393 jouda@dev.spsejecna.net # molic-peer3<br><br>
+
+                Můžete se do jedné z VM přihlásit, heslo je 'jooouda'.<br><br>
+
+                Po přihlášení lze zobrazit log aplikace příkazem “journalctl -fu chat” nebo číst či posílat zprávy
+                pomocí HTTP API “curl http://127.0.0.1:8080/”.<br><br>
+
+                Dále se lze k jedné z fungujících instancí připojit ručně, např. 172.27.249.43, a zkoušet TCP
+                protokol:<br><br>
+
+                jouda@molic-pokus:/# telnet 172.27.249.43 9876<br>
+                Trying 172.27.249.43...<br>
+                Connected to 172.27.249.43.<br>
+                Escape character is '^]'.<br>
+                {"command":"hello","peer_id":"foo"}<br>
+                {"status":"ok","messages":{"1707243010934":{"peer_id":"molic-peer3","message":"pokus"},"1707243028143":{"peer_id":"molic-peer3","message":"pokus2"},"1707243101261":{"peer_id":"molic-
+                ...<br><br><br>
+
+
+                Nápověda<br>
+                Doporučený postup práce<br>
+                Rozhodntete-li se používat VM, zkontrolujte, zda v něm existuje rozhraní eth1 a zda má IP v rozsahu
+                172.16.0.0/12. Pokud ne, jedná se o staré VM - požádejte učitele, aby vytvořil nové.<br><br>
+
+                Aplikace je komplexní. Není možné ji rozchodit stylem "všechno najednou", nýbrž je potřeba postupovat
+                krok za krokem:<br><br>
+
+                - Nejprve rozchodit UDP discovery. Můžete ho otestovat se třemi již fungujícími peery.<br>
+                - Až bude fungovat, pokračujte TCP protokolem. Posílání a příjem zpráv je možno testovat "natvrdo"
+                přímým voláním metod a pod.<br>
+                - Poté vytvořte jednoduchý webserver s API. Různé programovací jazyky již obsahují hotové implementace
+                webserverů, stačí použít vhodnou knihovnu.<br>
+                - Nakonec kód vyčistěte, doplňte synchronizaci vláken, dokumentaci, atd.<br><br>
+
+                FAQ a časté chyby<br>
+                Nesnažte se programovat klienta, použijte PuTTy nebo telnet.<br><br>
+                Nepleťe si to s architekturou klient/server.<br><br>
+                Neměňte příkazy, používejte výhradně ty povolené a přesně v tom tvaru, v jaké mají být. Když si zavedete
+                vlastní příkazy, tak Váš program nepůjde projit s programy spolužáků.<br><br>
+                Nezapomeňte na timeouty. Je to klíčová část programu. Je třeba hlídat timeout jak při scanování sítě tak
+                při každé komunikaci. Kdykoli se může každý připojený program nebo PuTTy prostě náhle odpojit nebo
+                dlouho nereagovat.<br><br>
+                Netestujte program sami, vždy testujte propojení Vašeho programu s programy spolužáků. Nakonec bude
+                třeba postavit síť těchto propojení, takže je celkem jedno, zda-li Vám program pracuje na localhostu.
+                Důležité je, aby Váš program spolupracoval s programy všech Vašich spolužáků, ačkoli jste každý takový
+                program naprogramovali každý sám a vlastním autorským způsobem.<br><br>
+                Nesdílejte se spolužáky žádné knihovny ani jiné části kódu, bude to považováno za podvod. Pozor i na to
+                generátory kódu typu ChatGPT, které generují velmi podobný kód a opět byste mohli jeho použitím
+                dosáhnout plagiátu.
+            </ul>
+        </div>
+    </div>
+    <div class="row btn-container">
+        <div class="col-md-2 col-md-offset-5">
+            <a class="btn btn-primary" href="./">Back</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>
