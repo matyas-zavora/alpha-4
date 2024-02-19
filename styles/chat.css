@@ -40,6 +40,10 @@
     border-radius: 10px;
 }
 
+.message-content {
+    font-size: 20px;
+}
+
 .incoming-message {
     background-color: #e0e0e0;
 }
@@ -83,5 +87,12 @@
 
 .message-timestamp {
     font-size: 0.8rem; /* Adjust font size as needed */
-    color: #999; /* Adjust color as needed */
+}
+
+.outgoing-message .message-timestamp {
+    color: #f8f9fa;
+}
+
+.incoming-message .message-timestamp {
+    color: #000;
 }

@@ -22,11 +22,16 @@
     <div class="row">
         <div class="col-md-2">
             <div class="sidebar">
-                <button class="btn btn-outline-danger back-button d-flex align-items-center justify-content-center w-100">
+                <a class="btn btn-outline-danger back-button d-flex align-items-center justify-content-center w-100"
+                   href="./">
                     <span class="material-symbols-outlined" style="font-size: 19px;">arrow_back</span> Back
-                </button>
+                </a>
                 <h5><b>Found Peers</b></h5>
                 <ul class="peer-list">
+                    <li class="d-flex justify-content-between">
+                        <span>You</span>
+                        <span class="text-muted">192.168.1.10</span>
+                    </li>
                     <li class="d-flex justify-content-between">
                         <span>Molic-peer1</span>
                         <span class="text-muted">192.168.1.10</span>
@@ -35,27 +40,25 @@
                         <span>Peer2</span>
                         <span class="text-muted">192.168.1.20</span>
                     </li>
-                    <!-- Add more peers here dynamically -->
                 </ul>
             </div>
         </div>
         <div class="col-md-10">
             <div class="messages-container">
-                <!-- Messages will be dynamically added here -->
                 <div class="message incoming-message">
                     <div class="message-header">
                         <div class="message-sender">Molic-peer1</div>
-                        <div class="message-timestamp">10:30 AM</div> <!-- Timestamp -->
+                        <div class="message-timestamp">10:30 AM</div>
                     </div>
                     <div class="message-content">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</div>
                 </div>
 
                 <div class="message outgoing-message">
                     <div class="message-sender">You</div>
+                    <div class="message-timestamp">10:30 AM</div>
                     <div class="message-content">Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
                     </div>
                 </div>
-                <!-- Add more messages here -->
             </div>
             <form id="message-form">
                 <div class="input-group">
