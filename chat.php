@@ -1,7 +1,6 @@
 <?php
 session_start();
-include "./templates/chat.html";
-include "./AsyncUDPDiscovery.php";
+include "./UDPDiscovery.php";
 
 /*
     1. UDP discovery
@@ -27,11 +26,12 @@ $ipAddress = $_SESSION['ipAddress'];
 $port = $_SESSION['port'];
 $mask = $_SESSION['mask'];
 
-$broadcastAddress = long2ip(ip2long($ipAddress) | ~ip2long($mask));
 
-$discovery = new AsyncUDPDiscovery($broadcastAddress, $port, $peerId);
-$discovery->discover();
+$discovery = new UDPDiscovery($ipAddress, $mask, $port, $peerId);
+$discovery->start();
 
-
-
-// Asynchronous UDP discovery
+echo "TEST";
+foreach ($discovery->getPeers() as $peer) {
+    echo "Peer: $peer\n";
+}
+include "./templates/chat.php";

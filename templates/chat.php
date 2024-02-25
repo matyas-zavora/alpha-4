@@ -32,14 +32,12 @@
                         <span>You</span>
                         <span class="text-muted">192.168.1.10</span>
                     </li>
+
+                    <?php foreach ($discovery->getPeers() as $peer): ?>
                     <li class="d-flex justify-content-between">
-                        <span>Molic-peer1</span>
-                        <span class="text-muted">192.168.1.10</span>
+                        <span><?= $peer ?></span>
                     </li>
-                    <li class="d-flex justify-content-between">
-                        <span>Peer2</span>
-                        <span class="text-muted">192.168.1.20</span>
-                    </li>
+                    <php endforeach; ?>
                 </ul>
             </div>
         </div>
